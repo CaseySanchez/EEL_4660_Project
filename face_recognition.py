@@ -15,7 +15,9 @@ class FaceRecognition:
 
         self.face_cascade = cv2.CascadeClassifier("haar_cascade_face.xml")
 
-    def __exit__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
         pass
 
     def recognize(self, image):
@@ -62,7 +64,9 @@ if __name__ == "__main__":
             if ret:
                 results = face_recognition.recognize(frame)
 
-                print("{0} detected with {1}%% accuracy".format(result[0], result[1] * 100.0) for result in results)
+                for result in results:
+                    print("{0} detected with {1}%% accuracy".format(result[0], result[1] * 100.0))
+                
                 print("----------")
 
             if cv2.waitKey(1) & 0xFF == ord("q"):

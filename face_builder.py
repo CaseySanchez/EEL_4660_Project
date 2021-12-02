@@ -10,6 +10,8 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
+import matplotlib.pyplot as plt
+
 class FaceBuilder:
     def __init__(self, dataset_path, batch_size, epochs, image_width, image_height):
         self.dataset_path = dataset_path
@@ -58,7 +60,9 @@ class FaceBuilder:
         self.training_dataset = self.training_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
         self.validation_dataset = self.validation_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
 
-    def __exit__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
         pass
 
     def build(self):
@@ -69,18 +73,41 @@ class FaceBuilder:
             layers.MaxPooling2D(),
             layers.Conv2D(64, 3, padding="same", activation="relu"),
             layers.MaxPooling2D(),
+            layers.Dropout(0.2),
             layers.Flatten(),
             layers.Dense(128, activation="relu"),
             layers.Dense(self.num_classes)
         ])
         
-        self.model.compile(optimizer='adam', loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+        self.model.compile(optimizer="adam", loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=["accuracy"])
 
         self.model.build((self.image_height, self.image_width, 3))
 
         self.model.summary()
 
         self.history = self.model.fit(self.training_dataset, validation_data=self.validation_dataset, epochs=self.epochs)
+
+        accuracy = self.history.history["accuracy"]
+        val_accuracy = self.history.history["val_accuracy"]
+
+        loss = self.history.history["loss"]
+        val_loss = self.history.history["val_loss"]
+
+        epochs_range = range(self.epochs)
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_range, accuracy, label="Training Accuracy")
+        plt.plot(epochs_range, val_accuracy, label="Validation Accuracy")
+        plt.legend(loc="lower right")
+        plt.title("Training and Validation Accuracy")
+
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_range, loss, label="Training Loss")
+        plt.plot(epochs_range, val_loss, label="Validation Loss")
+        plt.legend(loc="upper right")
+        plt.title("Training and Validation Loss")
+        plt.show()
 
     def save(self):
         self.model.save("model.h5")

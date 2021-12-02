@@ -29,7 +29,9 @@ class FaceRegistrar:
         
         self.face_cascade = cv2.CascadeClassifier("haar_cascade_face.xml")
 
-    def __exit__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
         self.video_capture.release()
         
         cv2.destroyAllWindows()
