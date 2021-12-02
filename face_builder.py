@@ -1,0 +1,102 @@
+import argparse
+import os
+import pathlib
+
+import numpy as np
+
+import tensorflow as tf
+
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.models import Sequential
+
+class FaceBuilder:
+    def __init__(self, dataset_path, batch_size, epochs, image_width, image_height):
+        self.dataset_path = dataset_path
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.image_width = image_width
+        self.image_height = image_height
+
+    def __enter__(self):
+        self.dataset_directory = pathlib.Path(self.dataset_path)
+
+        image_count = len(list(self.dataset_directory.glob("*/*.jpg")))
+
+        dataset_list = tf.data.Dataset.list_files(str(self.dataset_directory / "*/*.jpg"), shuffle=False).shuffle(image_count, reshuffle_each_iteration=False)
+
+        self.class_names = np.array(sorted([ item.name for item in self.dataset_directory.glob("*/") ]))
+
+        print("Class names: {0}".format(self.class_names))
+
+        self.num_classes = len(self.class_names)
+
+        validation_split = 0.2
+        validation_size = int(image_count * validation_split)
+
+        self.training_dataset = dataset_list.skip(validation_size)
+        self.validation_dataset = dataset_list.take(validation_size)
+
+        def process_path(file_path):
+            parts = tf.strings.split(file_path, os.path.sep)
+            
+            one_hot = parts[-2] == self.class_names
+
+            label = tf.argmax(one_hot)
+
+            image = tf.io.decode_jpeg(tf.io.read_file(file_path), channels=3)
+
+            image = tf.image.resize(image, [ self.image_height, self.image_width ])
+
+            image = tf.cast(image, tf.float32) / 255.0
+
+            return image, label
+
+        self.training_dataset = self.training_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
+        self.validation_dataset = self.validation_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
+
+        self.training_dataset = self.training_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+        self.validation_dataset = self.validation_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+
+    def __exit__(self):
+        pass
+
+    def build(self):
+        self.model = Sequential([
+            layers.Conv2D(16, 3, padding="same", activation="relu", input_shape=(self.image_height, self.image_width, 3)),
+            layers.MaxPooling2D(),
+            layers.Conv2D(32, 3, padding="same", activation="relu"),
+            layers.MaxPooling2D(),
+            layers.Conv2D(64, 3, padding="same", activation="relu"),
+            layers.MaxPooling2D(),
+            layers.Flatten(),
+            layers.Dense(128, activation="relu"),
+            layers.Dense(self.num_classes)
+        ])
+        
+        self.model.compile(optimizer='adam', loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+
+        self.model.build((self.image_height, self.image_width, 3))
+
+        self.model.summary()
+
+        self.history = self.model.fit(self.training_dataset, validation_data=self.validation_dataset, epochs=self.epochs)
+
+    def save(self):
+        self.model.save("model.h5")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dataset_path", type=str, required=True)
+    parser.add_argument("--batch_size", type=int, required=True)
+    parser.add_argument("--epochs", type=int, required=True)
+    parser.add_argument("--image_width", type=int, required=True)
+    parser.add_argument("--image_height", type=int, required=True)
+
+    args = parser.parse_args()
+
+    with FaceBuilder(args.dataset_path, args.batch_size, args.epochs, args.image_width, args.image_height) as face_builder:
+        face_builder.build()
+        face_builder.save()
+    
