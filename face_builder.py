@@ -53,6 +53,7 @@ class FaceBuilder:
         self.training_dataset = self.training_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
         self.validation_dataset = self.validation_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
 
+        '''
         def flip(image, label):
             image = tf.image.random_flip_left_right(image)
 
@@ -76,6 +77,7 @@ class FaceBuilder:
 
         self.training_dataset = self.training_dataset.concatenate(training_dataset_color)
         self.validation_dataset = self.validation_dataset.concatenate(validation_dataset_color)
+        '''
 
         def scale(image, label):
             image = tf.cast(image, tf.float32) / 255.0
@@ -95,16 +97,28 @@ class FaceBuilder:
 
     def build(self):
         self.model = Sequential([
-            layers.Conv2D(16, 3, padding="same", activation="relu", input_shape=(self.image_height, self.image_width, 3)),
-            layers.MaxPooling2D(),
-            layers.Conv2D(32, 3, padding="same", activation="relu"),
-            layers.MaxPooling2D(),
-            layers.Conv2D(64, 3, padding="same", activation="relu"),
-            layers.MaxPooling2D(),
-            layers.Dropout(0.2),
+            layers.Conv2D(filters=64, kernel_size=(3, 3), padding="same", activation="relu", input_shape=(self.image_height, self.image_width, 3)),
+            layers.Conv2D(filters=64, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)),
+            layers.Conv2D(filters=128, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=128, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)),
+            layers.Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"),
+            layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)),
             layers.Flatten(),
-            layers.Dense(128, activation="relu"),
-            layers.Dense(self.num_classes)
+            layers.Dense(units=4096, activation="relu"),
+            layers.Dense(units=4096, activation="relu"),
+            layers.Dense(units=self.num_classes)
         ])
         
         self.model.compile(optimizer="adam", loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=["accuracy"])
