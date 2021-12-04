@@ -82,11 +82,8 @@ class FaceBuilder:
 
             return image, label
 
-        training_dataset_scale = self.training_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
-        validation_dataset_scale = self.validation_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
-
-        self.training_dataset = self.training_dataset.concatenate(training_dataset_scale)
-        self.validation_dataset = self.validation_dataset.concatenate(validation_dataset_scale)
+        self.training_dataset = self.training_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
+        self.validation_dataset = self.validation_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
 
         self.training_dataset = self.training_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
         self.validation_dataset = self.validation_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
