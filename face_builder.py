@@ -10,8 +10,6 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
-import matplotlib.pyplot as plt
-
 class FaceBuilder:
     def __init__(self, dataset_path, batch_size, epochs, image_width, image_height):
         self.dataset_path = dataset_path
@@ -50,12 +48,45 @@ class FaceBuilder:
 
             image = tf.image.resize(image, [ self.image_height, self.image_width ])
 
-            image = tf.cast(image, tf.float32) / 255.0
-
             return image, label
 
         self.training_dataset = self.training_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
         self.validation_dataset = self.validation_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
+
+        def flip(image, label):
+            image = tf.image.random_flip_left_right(image)
+
+            return image, label
+
+        training_dataset_flip = self.training_dataset.map(flip, num_parallel_calls=tf.data.AUTOTUNE)
+        validation_dataset_flip = self.validation_dataset.map(flip, num_parallel_calls=tf.data.AUTOTUNE)
+
+        self.training_dataset = self.training_dataset.concatenate(training_dataset_flip)
+        self.validation_dataset = self.validation_dataset.concatenate(validation_dataset_flip)
+
+        def color(image, label):
+            image = tf.image.random_saturation(image, 0.6, 1.6)
+            image = tf.image.random_brightness(image, 0.05)
+            image = tf.image.random_contrast(image, 0.7, 1.3)
+
+            return image, label
+
+        training_dataset_color = self.training_dataset.map(color, num_parallel_calls=tf.data.AUTOTUNE)
+        validation_dataset_color = self.validation_dataset.map(color, num_parallel_calls=tf.data.AUTOTUNE)
+
+        self.training_dataset = self.training_dataset.concatenate(training_dataset_color)
+        self.validation_dataset = self.validation_dataset.concatenate(validation_dataset_color)
+
+        def scale(image, label):
+            image = tf.cast(image, tf.float32) / 255.0
+
+            return image, label
+
+        training_dataset_scale = self.training_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
+        validation_dataset_scale = self.validation_dataset.map(scale, num_parallel_calls=tf.data.AUTOTUNE)
+
+        self.training_dataset = self.training_dataset.concatenate(training_dataset_scale)
+        self.validation_dataset = self.validation_dataset.concatenate(validation_dataset_scale)
 
         self.training_dataset = self.training_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
         self.validation_dataset = self.validation_dataset.cache().shuffle(buffer_size=1000).batch(self.batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
@@ -86,28 +117,6 @@ class FaceBuilder:
         self.model.summary()
 
         self.history = self.model.fit(self.training_dataset, validation_data=self.validation_dataset, epochs=self.epochs)
-
-        accuracy = self.history.history["accuracy"]
-        val_accuracy = self.history.history["val_accuracy"]
-
-        loss = self.history.history["loss"]
-        val_loss = self.history.history["val_loss"]
-
-        epochs_range = range(self.epochs)
-
-        plt.figure(figsize=(8, 8))
-        plt.subplot(1, 2, 1)
-        plt.plot(epochs_range, accuracy, label="Training Accuracy")
-        plt.plot(epochs_range, val_accuracy, label="Validation Accuracy")
-        plt.legend(loc="lower right")
-        plt.title("Training and Validation Accuracy")
-
-        plt.subplot(1, 2, 2)
-        plt.plot(epochs_range, loss, label="Training Loss")
-        plt.plot(epochs_range, val_loss, label="Validation Loss")
-        plt.legend(loc="upper right")
-        plt.title("Training and Validation Loss")
-        plt.show()
 
     def save(self):
         self.model.save("model.h5")
