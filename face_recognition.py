@@ -5,6 +5,10 @@ import cv2
 
 import tensorflow as tf
 
+from gpiozero import Servo, Button, Buzzer
+
+import time
+
 class FaceRecognition:
     def __init__(self, image_width, image_height):
         self.image_width = image_width
@@ -58,19 +62,43 @@ if __name__ == "__main__":
     with FaceRecognition(args.image_width, args.image_height) as face_recognition:
         video_capture = cv2.VideoCapture(-1)
 
+        servo = Servo(17)
+        button = Button(27, pull_up=False, bounce_time=1)
+        buzzer = Buzzer(22)
+
+        servo.min()
+
+        state = False
+
         while True:
-            ret, frame = video_capture.read()
-
-            if ret:
-                results = face_recognition.recognize(frame)
-
-                for result in results:
-                    print("{0} detected with {1}%% accuracy".format(result[0], result[1] * 100.0))
-                
-                print("----------")
-
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
+
+            if button.is_pressed:
+                if not state:
+                    ret, frame = video_capture.read()
+
+                    if ret:
+                        results = face_recognition.recognize(frame)
+
+                        if len(results) > 0 and results[0][1] >= 0.9:
+                            servo.max()
+
+                            state = True
+
+                        else:
+                            buzzer.on()
+
+                            time.sleep(1)
+
+                            buzzer.off()
+                            
+                else:
+                    servo.min()
+
+                    state = False
+
+        servo.min()
 
         video_capture.release()
         
